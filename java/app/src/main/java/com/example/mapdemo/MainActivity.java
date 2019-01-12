@@ -23,6 +23,11 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 
 import android.os.Bundle;
@@ -41,16 +46,14 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 
 
-
-
 /**
  * This shows how to create a simple activity with a map and a marker on the map.
  */
-public class MainActivity extends AppCompatActivity  implements OnMapReadyCallback {
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private RequestQueue mQueue;
     private GoogleMap myMap;
-
+    private static final int LocationRequest=500;
     String name;
     String latitude;
     String longitude;
@@ -69,14 +72,14 @@ public class MainActivity extends AppCompatActivity  implements OnMapReadyCallba
 
     }
 
-    private void jsonParse(){
+    private void jsonParse() {
 
         String url = "https://staging.raye7.com/android_interns/index";
-        JsonObjectRequest request= new JsonObjectRequest(Request.Method.GET, url, null,
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null,
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
-                        Log.e("The Response" , response.toString());
+                        Log.e("The Response", response.toString());
                         JSONObject source;
                         JSONObject destination;
                         JSONArray users;
@@ -100,6 +103,9 @@ public class MainActivity extends AppCompatActivity  implements OnMapReadyCallba
                             double latitudeDestD = Double.parseDouble(latitudeDest);
                             double longitudeDestD = Double.parseDouble(longitudeDest);
                             myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeDestD, longitudeDestD)).title(nameDest));
+
+
+                            onMapReady(myMap);
 
                             //USERS ON THE MAP
                             users = response.getJSONArray("users");
@@ -138,6 +144,25 @@ public class MainActivity extends AppCompatActivity  implements OnMapReadyCallba
 
     public void onMapReady(GoogleMap map) {
    myMap = map;
+        myMap.getUiSettings().setZoomControlsEnabled(true);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)) {
+            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LocationRequest);
+            return;
+        }
+        myMap.setMyLocationEnabled(true);
+
     }
 
+    @SuppressLint("MissingPermission")
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode){
+            case LocationRequest:
+                if(grantResults.length >0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                    myMap.setMyLocationEnabled(true);
+                }
+                break;
+        }
+
+    }
 }
