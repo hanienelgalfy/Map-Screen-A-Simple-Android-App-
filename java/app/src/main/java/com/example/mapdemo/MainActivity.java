@@ -16,115 +16,128 @@
 
 package com.example.mapdemo;
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.res.Resources;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
+
+import android.util.Log;
+
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
-import android.widget.ListView;
 
-import android.widget.TextView;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
+
 import com.android.volley.toolbox.Volley;
 import com.android.volley.Request;
 
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONArray;
+
+
+
+
 /**
- * The main activity of the API library demo gallery.
- * <p>
- * The main layout lists the demonstrated features, with buttons to launch them.
+ * This shows how to create a simple activity with a map and a marker on the map.
  */
-public final class MainActivity extends AppCompatActivity
-        implements AdapterView.OnItemClickListener {
-/**
-    final TextView mTextView = (TextView) findViewById(R.id.text);
-// ...
+public class MainActivity extends AppCompatActivity  implements OnMapReadyCallback {
 
-    public void makePost() {
-        // Instantiate the RequestQueue.
-        RequestQueue queue = Volley.newRequestQueue(this);
+    private RequestQueue mQueue;
+    private GoogleMap myMap;
+
+    String name;
+    String latitude;
+    String longitude;
+
+    protected void onCreate(Bundle savedInstanceState) {
+
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        SupportMapFragment mapFragment =
+                (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+
+        mQueue = Volley.newRequestQueue(this);
+        jsonParse();
+
+    }
+
+    private void jsonParse(){
+
         String url = "https://staging.raye7.com/android_interns/index";
-
-        // Request a string response from the provided URL.
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                new Response.Listener<String>() {
+        JsonObjectRequest request= new JsonObjectRequest(Request.Method.GET, url, null,
+                new Response.Listener<JSONObject>() {
                     @Override
-                    public void onResponse(String response) {
-                        // Display the first 500 characters of the response string.
-                        mTextView.setText("Response is: " + response.substring(0, 500));
+                    public void onResponse(JSONObject response) {
+                        Log.e("The Response" , response.toString());
+                        JSONObject source;
+                        JSONObject destination;
+                        JSONArray users;
+                        try {
+                            //Source "City Stars"
+                            source = response.getJSONObject("source");
+                            name = source.getString("name");
+                            latitude = source.getString("latitude");
+                            longitude = source.getString("longitude");
+                            double latitudeD = Double.parseDouble(latitude);
+                            double longitudeD = Double.parseDouble(longitude);
+
+                            myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeD, longitudeD)).title(name));
+
+                            //Destination "Raye7"
+                            destination = response.getJSONObject("destinaton");
+                            String nameDest = destination.getString("name");
+                            Log.e("DESTINATION", destination.toString());
+                            String latitudeDest = destination.getString("latitude");
+                            String longitudeDest = destination.getString("longitude");
+                            double latitudeDestD = Double.parseDouble(latitudeDest);
+                            double longitudeDestD = Double.parseDouble(longitudeDest);
+                            myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeDestD, longitudeDestD)).title(nameDest));
+
+                            //USERS ON THE MAP
+                            users = response.getJSONArray("users");
+                            for(int i =0; i < users.length(); i++) {
+                                JSONObject user1 = users.getJSONObject(i);
+                                String nameu1 = user1.getString("name");
+                                JSONObject coordinatesu1 = user1.getJSONObject("coordinates");
+                                String longitudeu1 = coordinatesu1.getString("longitude");
+                                String latitudeu1 = coordinatesu1.getString("latitude");
+                                double longitudeu1D = Double.parseDouble(longitudeu1);
+                                double latitudeu1D = Double.parseDouble(latitudeu1);
+                                myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeu1D, longitudeu1D)).title(nameu1));
+                            }
+
+
+                        } catch (JSONException e) {
+                            //   Log.d("HA B2AAAAAA" , name);
+                            e.printStackTrace();
+                        }
+
                     }
                 }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                mTextView.setText("That didn't work!");
+                error.printStackTrace();
             }
         });
 
-// Add the request to the RequestQueue.
-        queue.add(stringRequest);
+        mQueue.add(request);
     }
- **/
-
     /**
-     * A custom array adapter that shows a {@link FeatureView} containing details about the demo.
+     * This is where we can add markers or lines, add listeners or move the camera. In this case,
+     * we
+     * just add a marker near Africa.
      */
-    private static class CustomArrayAdapter extends ArrayAdapter<DemoDetails> {
 
-        /**
-         * @param demos An array containing the details of the demos to be displayed.
-         */
-        public CustomArrayAdapter(Context context, DemoDetails[] demos) {
-            super(context, R.layout.feature, R.id.title, demos);
-
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            FeatureView featureView;
-            if (convertView instanceof FeatureView) {
-                featureView = (FeatureView) convertView;
-            } else {
-                featureView = new FeatureView(getContext());
-            }
-
-            DemoDetails demo = getItem(position);
-
-            featureView.setTitleId(demo.titleId);
-            featureView.setDescriptionId(demo.descriptionId);
-
-            Resources resources = getContext().getResources();
-            String title = resources.getString(demo.titleId);
-            String description = resources.getString(demo.descriptionId);
-            featureView.setContentDescription(title + ". " + description);
-
-            return featureView;
-        }
+    public void onMapReady(GoogleMap map) {
+   myMap = map;
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
-        ListView list = (ListView) findViewById(R.id.list);
-
-        ListAdapter adapter = new CustomArrayAdapter(this, DemoDetailsList.DEMOS);
-
-        list.setAdapter(adapter);
-        list.setOnItemClickListener(this);
-        list.setEmptyView(findViewById(R.id.text));
-    //makePost();
-    }
-
-    @Override
-    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-        DemoDetails demo = (DemoDetails) parent.getAdapter().getItem(position);
-        startActivity(new Intent(this, demo.activityClass));
-    }
 }
