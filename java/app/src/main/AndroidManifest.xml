@@ -22,7 +22,9 @@
          Google Maps Android API v2, but you must specify either coarse or fine
          location permissions for the 'MyLocation' functionality.
     -->
+
     <uses-permission android:name="android.permission.INTERNET"/>
+
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
@@ -54,7 +56,7 @@
         -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDUgzn-8ZcIsVp7DzbglfBULGT_wgmZV48"
+            android:value="AIzaSyBAWV6fcAFbvdBxmc5bVWQ5FIM3tPXMr5E"
             />
 
 

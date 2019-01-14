@@ -15,48 +15,45 @@
  */
 
 package com.example.mapdemo;
-
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
-
-import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.pm.PackageManager;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
+import android.graphics.Color;
+import android.os.AsyncTask;
 import android.util.Log;
-
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-
+import android.widget.Toast;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-
 import com.android.volley.toolbox.Volley;
 import com.android.volley.Request;
-
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
-/**
- * This shows how to create a simple activity with a map and a marker on the map.
- */
+
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private RequestQueue mQueue;
     private GoogleMap myMap;
-    private static final int LocationRequest=500;
-    String name;
-    String latitude;
-    String longitude;
 
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -68,61 +65,71 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapFragment.getMapAsync(this);
 
         mQueue = Volley.newRequestQueue(this);
-        jsonParse();
+        callAPI();
 
     }
 
-    private void jsonParse() {
+    private LatLng parseLocation(JSONObject sourceOrDestination ){
 
+        try {
+            String Name = sourceOrDestination.getString("name");
+            double Latitude = Double.parseDouble(sourceOrDestination.getString("latitude"));
+            double Longitude = Double.parseDouble(sourceOrDestination.getString("longitude"));
+            LatLng position = new LatLng(Latitude, Longitude);
+            myMap.addMarker(new MarkerOptions().position(position).title(Name));
+            return position;
+        }
+        catch (JSONException e) {
+
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
+    private void parseOtherUsersLocations(JSONArray users){
+        try{
+            for(int i = 0 ; i < users.length(); i++) {
+                JSONObject user = users.getJSONObject(i);
+                String userName = user.getString("name");
+                JSONObject coordinates = user.getJSONObject("coordinates");
+                double longitude = Double.parseDouble(coordinates.getString("longitude"));
+                double latitude = Double.parseDouble(coordinates.getString("latitude"));
+                myMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title(userName));
+            }
+
+        }
+        catch(JSONException e)
+        {
+            e.printStackTrace();
+        }
+
+    }
+
+    private void callAPI() {
         String url = "https://staging.raye7.com/android_interns/index";
         JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null,
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
                         Log.e("The Response", response.toString());
-                        JSONObject source;
-                        JSONObject destination;
-                        JSONArray users;
+
                         try {
-                            //Source "City Stars"
-                            source = response.getJSONObject("source");
-                            name = source.getString("name");
-                            latitude = source.getString("latitude");
-                            longitude = source.getString("longitude");
-                            double latitudeD = Double.parseDouble(latitude);
-                            double longitudeD = Double.parseDouble(longitude);
+                            JSONObject source = response.getJSONObject("source"); //source
+                            LatLng origin = parseLocation(source);
 
-                            myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeD, longitudeD)).title(name));
+                            JSONObject destination = response.getJSONObject("destinaton"); //destination
+                            LatLng desti = parseLocation(destination);
 
-                            //Destination "Raye7"
-                            destination = response.getJSONObject("destinaton");
-                            String nameDest = destination.getString("name");
-                            Log.e("DESTINATION", destination.toString());
-                            String latitudeDest = destination.getString("latitude");
-                            String longitudeDest = destination.getString("longitude");
-                            double latitudeDestD = Double.parseDouble(latitudeDest);
-                            double longitudeDestD = Double.parseDouble(longitudeDest);
-                            myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeDestD, longitudeDestD)).title(nameDest));
+                            String dir_url = getRequestUrl(origin , desti);
+                            TaskDirectionRequest taskDirectionRequest = new TaskDirectionRequest();
+                            taskDirectionRequest.execute(dir_url);
 
-
-                            onMapReady(myMap);
-
-                            //USERS ON THE MAP
-                            users = response.getJSONArray("users");
-                            for(int i =0; i < users.length(); i++) {
-                                JSONObject user1 = users.getJSONObject(i);
-                                String nameu1 = user1.getString("name");
-                                JSONObject coordinatesu1 = user1.getJSONObject("coordinates");
-                                String longitudeu1 = coordinatesu1.getString("longitude");
-                                String latitudeu1 = coordinatesu1.getString("latitude");
-                                double longitudeu1D = Double.parseDouble(longitudeu1);
-                                double latitudeu1D = Double.parseDouble(latitudeu1);
-                                myMap.addMarker(new MarkerOptions().position(new LatLng(latitudeu1D, longitudeu1D)).title(nameu1));
-                            }
-
+                            JSONArray users = response.getJSONArray("users"); //other users
+                            parseOtherUsersLocations(users);
 
                         } catch (JSONException e) {
-                            //   Log.d("HA B2AAAAAA" , name);
+
                             e.printStackTrace();
                         }
 
@@ -136,33 +143,118 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mQueue.add(request);
     }
-    /**
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we
-     * just add a marker near Africa.
-     */
+
 
     public void onMapReady(GoogleMap map) {
-   myMap = map;
-        myMap.getUiSettings().setZoomControlsEnabled(true);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)) {
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LocationRequest);
-            return;
-        }
-        myMap.setMyLocationEnabled(true);
-
+        myMap = map;
     }
 
+    private String getRequestUrl(LatLng origin ,LatLng dest){
+        String str_org = "origin=" + origin.latitude +","+origin.longitude;
+        String str_dest = "destination=" + dest.latitude+","+dest.longitude;
+        String sensor = "sensor=false";
+        String mode = "mode=driving";
+        String param = str_org +"&" + str_dest + "&" +sensor+"&" +mode;
+        String output = "json";
+        String url = "https://maps.googleapis.com/maps/api/directions/" + output + "?" + param+
+                "&key=AIzaSyBAWV6fcAFbvdBxmc5bVWQ5FIM3tPXMr5E";
+        return url;
+    }
+
+    private String requestDirection(String reqUrl) throws IOException {
+        String responseString = "";
+        InputStream inputStream = null;
+        HttpURLConnection httpURLConnection= null;
+        try{
+            URL url = new URL(reqUrl);
+            httpURLConnection = (HttpURLConnection) url.openConnection();
+            httpURLConnection.connect();
+
+            //Get the response result
+            inputStream= httpURLConnection.getInputStream();
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+            StringBuffer stringBuffer = new StringBuffer();
+            String line = "";
+            while((line = bufferedReader.readLine())!= null){
+                stringBuffer.append(line);
+            }
+            responseString = stringBuffer.toString();
+            bufferedReader.close();
+            inputStreamReader.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            if(inputStream !=null){
+                inputStream.close();
+            }
+            httpURLConnection.disconnect();
+        }return  responseString;
+    }
     @SuppressLint("MissingPermission")
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode){
-            case LocationRequest:
-                if(grantResults.length >0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                    myMap.setMyLocationEnabled(true);
-                }
-                break;
+
+
+    public class TaskDirectionRequest extends AsyncTask<String , Void , String>{
+        @Override
+        protected String doInBackground(String... strings) {
+            String responseString = "";
+            try {
+                responseString = requestDirection(strings[0]);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return  responseString;
         }
 
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            TaskParser taskParser = new TaskParser();
+            taskParser.execute(s);
+        }
+    }
+
+    public class TaskParser extends AsyncTask<String , Void ,List<List<HashMap<String, String>>> >{
+
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(String... strings) {
+            JSONObject jsonObject = null;
+            List<List<HashMap<String , String>>> routes= null;
+            try {
+                jsonObject = new JSONObject(strings[0]);
+                DirectionParser directionParser = new DirectionParser();
+                routes = directionParser.parse(jsonObject);
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return routes;
+        }
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> lists) {
+            ArrayList points = null;
+            PolylineOptions polylineOptions = new PolylineOptions();
+            for(List<HashMap<String, String>>path :lists){
+                points = new ArrayList();
+                for(HashMap<String, String> point : path){
+                    double lat =Double.parseDouble(point.get("lat"));
+                    double lon =Double.parseDouble(point.get("lon"));
+                    points.add(new LatLng(lat,lon));
+                }
+                polylineOptions.addAll(points);
+                polylineOptions.width(15);
+                polylineOptions.color(Color.BLUE);
+                polylineOptions.geodesic(true);
+
+            }
+            if(polylineOptions!=null){
+                myMap.addPolyline(polylineOptions);
+
+            }else{
+                Toast.makeText(getApplicationContext() , "Direction not found" , Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 }
